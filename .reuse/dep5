@@ -1,0 +1,9 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name:  <https://gitlab.com/the-common/project-template/-/issues>
+Source: https://gitlab.com/the-common/project-template
+
+Files:
+ *README.md
+ */README.md
+Copyright: 2024 林博仁(Buo-ren, Lin) <Buo.Ren.Lin@gmail.com>
+License: CC-BY-SA-4.0+
