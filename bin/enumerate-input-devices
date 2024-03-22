@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Enumerate Linux input devices and their display names for the user to
+# determine which is which
+#
+# Copyright 2024 林博仁(Buo-ren, Lin) <Buo.Ren.Lin@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+printf \
+    'Info: Configuring the defensive Bash script interpreter behaviors...\n'
+set_opts=(
+    -o errexit
+    -o errtrace
+    -o nounset
+)
+if ! set "${set_opts[@]}"; then
+    printf \
+        'Error: Unable to configure the defensive Bash script interpreter behaviors.\n' \
+        1>&2
+    exit 1
+fi
+
+printf \
+    'Info: Enumerating Linux input devices...\n'
+find_opts=(
+    -mindepth 1
+    -maxdepth 1
+
+    # Only enumerating symbolic links
+    -type l
+
+    -name 'input*'
+)
+if ! input_enumeration_result_raw="$(
+    find /sys/class/input "${find_opts[@]}"
+    )"; then
+    printf \
+        'Error: Unable to enumerate the Linux input devices.\n' \
+        1>&2
+    exit 2
+fi
+
+printf \
+    'Info: Sorting the enumeration result...\n'
+sort_opts=(
+    # Sort 100 over 11
+    --version-sort
+)
+if ! sorted_input_devices_raw="$(
+    sort "${sort_opts[@]}" <<<"${input_enumeration_result_raw}"
+    )"; then
+    printf \
+        'Error: Unable to sort the enumeration result.\n' \
+        1>&2
+    exit 2
+fi
+
+printf \
+    'Info: Loading the enumeration result to a Bash array...\n'
+mapfile_opts=(
+    # Remove the trailing field separator from array member
+    -t
+)
+if ! mapfile "${mapfile_opts[@]}" input_devices \
+    <<<"${sorted_input_devices_raw}"; then
+    printf \
+        'Error: Unable to load the enumeration result to a Bash array.\n' \
+        1>&2
+    exit 2
+fi
+
+printf \
+    'Info: Enumerating Linux input devices and their display names...\n'
+for input_device in "${input_devices[@]}"; do
+    input_name="${input_device##*/}"
+    echo "${input_device}:"
+    if ! display_name="$(<"${input_device}/name")"; then
+        printf \
+            "Warning: Unable to read the \"%s\" input device's display name.\\n" \
+            "${input_name}" \
+            1>&2
+        exit 2
+    fi
+    echo "${display_name}"
+    echo # separater between each input device enumeration
+done
+
+printf \
+    'Info: Operation completed without errors.\n'
