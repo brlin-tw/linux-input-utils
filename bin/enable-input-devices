@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+# Enable specified input devices
+#
+# Copyright 2024 林博仁 <buo.ren.lin@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+printf \
+    'Info: Configuring the defensive interpreter behaviors...\n'
+set_opts=(
+    # Terminate script execution when an unhandled error occurs
+    -o errexit
+    -o errtrace
+
+    # Terminate script execution when an unset parameter variable is
+    # referenced
+    -o nounset
+)
+if ! set "${set_opts[@]}"; then
+    printf \
+        'Error: Unable to configure the defensive interpreter behaviors.\n' \
+        1>&2
+    exit 1
+fi
+
+printf \
+    'Info: Checking the existence of the required commands...\n'
+required_commands=(
+    realpath
+)
+flag_required_command_check_failed=false
+for command in "${required_commands[@]}"; do
+    if ! command -v "${command}" >/dev/null; then
+        flag_required_command_check_failed=true
+        printf \
+            'Error: This program requires the "%s" command to be available in your command search PATHs.\n' \
+            "${command}" \
+            1>&2
+    fi
+done
+if test "${flag_required_command_check_failed}" == true; then
+    printf \
+        'Error: Required command check failed, please check your installation.\n' \
+        1>&2
+    exit 1
+fi
+
+if test -v BASH_SOURCE; then
+    printf \
+        'Info: Configuring the convenience variables...\n'
+    # Convenience variables
+    # shellcheck disable=SC2034
+    {
+        printf \
+            'Info: Determining the absolute path of the program...\n'
+        if ! script="$(
+            realpath \
+                --strip \
+                "${BASH_SOURCE[0]}"
+            )"; then
+            printf \
+                'Error: Unable to determine the absolute path of the program.\n' \
+                1>&2
+            exit 1
+        fi
+        script_dir="${script%/*}"
+        script_filename="${script##*/}"
+        script_name="${script_filename%%.*}"
+    }
+fi
+script_basecommand="${0}"
+script_args=("${@}")
+
+printf \
+    'Info: Checking the command-line argument quantity...\n'
+if test "${#script_args[@]}" -eq 0; then
+    printf \
+        'Error: Usage: %s input_device_identifier...\n' \
+        "${script_basecommand}"
+    exit 1
+fi
+
+input_device_ids=("${@}")
+
+printf \
+    'Info: Validating the command-line arguments...\n'
+flag_command_line_argument_validation_failed=false
+regex_nonnegative_integers='^(0|[1-9][[:digit:]]*)$'
+for id in "${input_device_ids[@]}"; do
+    if ! [[ "${id}" =~ ${regex_nonnegative_integers} ]]; then
+        printf \
+            'Error: The command-line argument "%s" is not a non-negative integer.\n' \
+            "${id}" \
+            1>&2
+
+        flag_command_line_argument_validation_failed=true
+    fi
+done
+if test "${flag_command_line_argument_validation_failed}" == true; then
+    printf \
+        'Error: The command-line argument validation has failed.\n' \
+        1>&2
+    exit 1
+fi
+
+printf \
+    'Info: Checking superuser privileges...\n'
+if test "${EUID}" -ne 0; then
+    printf \
+        'Error: This program requires to be run as the superuser(root).\n' \
+        1>&2
+    exit 1
+fi
+
+for id in "${input_device_ids[@]}"; do
+    input_device_sysfs_node="/sys/class/input/input${id}"
+    if ! test -e "${input_device_sysfs_node}"; then
+        printf \
+            'Error: The input device sysfs node(%s) does not exist.\n' \
+            "${input_device_sysfs_node}" \
+            1>&2
+        exit 2
+    fi
+
+    if ! input_device_display_name="$(<"${input_device_sysfs_node}/name")"; then
+        printf \
+            'Error: Unable to read the display name of the #%u input device.\n' \
+            "${id}" \
+            1>&2
+        exit 2
+    fi
+
+    printf \
+        'Info: Enabling input device #%u(%s)...\n' \
+        "${id}" \
+        "${input_device_display_name}"
+    if ! echo 0 >"${input_device_sysfs_node}/inhibited"; then
+        printf \
+            'Error: Unable to enable the input device.\n' \
+            1>&2
+        exit 2
+    fi
+done
+
+printf \
+    'Info: Operation completed without errors.\n'
