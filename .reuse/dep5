@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name:  <https://gitlab.com/the-common/project-template/-/issues>
-Source: https://gitlab.com/the-common/project-template
+Upstream-Name: Linux input device management utilites <https://gitlab.com/brlin/linux-input-utils/-/issues>
+Source: https://gitlab.com/brlin/linux-input-utils
 
 Files:
  *README.md
